@@ -1,38 +1,46 @@
-// Footstep Energy Generator - Sensor Monitoring
-// Board: Arduino Nano | Sensors: 8 piezoelectric elements (A0-A7)
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
 
-const int NUM_SENSORS = 8;
-const int sensorPins[NUM_SENSORS] = {A0, A1, A2, A3, A4, A5, A6, A7};
-const float VREF = 5.0;          // Nano reference voltage
-const float STEP_THRESHOLD = 0.5; // Volts; adjust after testing
+LiquidCrystal_I2C lcd(0x27, 16, 2);  // I2C address 0x27 (some modules use 0x3F)
+
+const int PIEZO_PIN = A0;
+const float VREF = 5.0;
+const float STEP_THRESHOLD = 0.5;    // volts; tune after testing
+
+int stepCount = 0;
+bool stepActive = false;
+unsigned long lastUpdate = 0;
 
 void setup() {
-  Serial.begin(9600);
-  Serial.println("Footstep Energy Generator started");
+  lcd.init();
+  lcd.backlight();
+  lcd.setCursor(0, 0);
+  lcd.print("Footstep Energy");
+  lcd.setCursor(0, 1);
+  lcd.print("Generator");
+  delay(2000);
+  lcd.clear();
 }
 
 void loop() {
-  float total = 0;
+  float volts = analogRead(PIEZO_PIN) * (VREF / 1023.0);
 
-  for (int i = 0; i < NUM_SENSORS; i++) {
-    int raw = analogRead(sensorPins[i]);
-    float volts = raw * (VREF / 1023.0);
-    total += volts;
-
-    if (volts > STEP_THRESHOLD) {
-      Serial.print("Footstep on sensor ");
-      Serial.print(i + 1);
-      Serial.print(": ");
-      Serial.print(volts, 2);
-      Serial.println(" V");
-    }
+  if (volts > STEP_THRESHOLD && !stepActive) {
+    stepCount++;
+    stepActive = true;
+  } else if (volts < STEP_THRESHOLD / 2) {
+    stepActive = false;
   }
 
-  if (total > STEP_THRESHOLD) {
-    Serial.print("Total voltage: ");
-    Serial.print(total, 2);
-    Serial.println(" V");
+  if (millis() - lastUpdate > 200) {
+    lastUpdate = millis();
+    lcd.setCursor(0, 0);
+    lcd.print("Voltage:");
+    lcd.print(volts, 2);
+    lcd.print("V   ");
+    lcd.setCursor(0, 1);
+    lcd.print("Steps:");
+    lcd.print(stepCount);
+    lcd.print("     ");
   }
-
-  delay(50);
 }
